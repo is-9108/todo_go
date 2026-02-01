@@ -1,15 +1,15 @@
-# ラズパイへのデプロイ（テンプレート）
-# 手動実行: Actions タブ → Deploy to Raspberry Pi → Run workflow
+# ラズパイへのデプロイ（Self-hosted Runner 使用）
+# ラズパイ上で Runner を登録し、push または手動実行でデプロイ
 #
-# 有効化するには GitHub Secrets に以下を設定:
-#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_KEY（SSH接続用）
-#   CORS_ORIGINS（推奨）例: http://192.168.1.100:3000,http://10.0.0.5:3000
-#   NEXT_PUBLIC_API_URL（オプション）ビルド時のフォールバック用
+# セットアップ: ラズパイに Self-hosted Runner を登録（README 参照）
+# GitHub Secrets（任意・推奨）:
+#   CORS_ORIGINS  例: http://192.168.1.100:3000,http://10.0.0.5:3000
+#   NEXT_PUBLIC_API_URL  例: http://192.168.1.100:8080
 
 name: Deploy to Raspberry Pi
 
 on:
-  workflow_dispatch:  # 手動実行
+  workflow_dispatch:
   push:
     branches: [main, master]
     paths-ignore:
@@ -18,32 +18,21 @@ on:
 
 jobs:
   deploy:
-    name: Deploy via SSH
-    runs-on: ubuntu-latest
+    name: Deploy on Pi
+    runs-on: [self-hosted, Linux]  # ラズパイに登録した Runner
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to Raspberry Pi
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_KEY }}
-          envs: CORS_ORIGINS,NEXT_PUBLIC_API_URL,DEPLOY_USER
-          script: |
-            cd /home/$DEPLOY_USER/kakeibo-app
-            git pull origin main
-            # .env を生成（Secrets があれば使用、なければ既存 .env を維持）
-            if [ -n "$CORS_ORIGINS" ] || [ -n "$NEXT_PUBLIC_API_URL" ]; then
-              {
-                [ -n "$CORS_ORIGINS" ] && echo "CORS_ORIGINS=$CORS_ORIGINS"
-                [ -n "$NEXT_PUBLIC_API_URL" ] && echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL"
-              } > .env
-            fi
-            docker compose -f docker-compose.prod.yml build
-            docker compose -f docker-compose.prod.yml up -d
+      - name: Create .env
+        run: |
+          {
+            [ -n "${{ secrets.CORS_ORIGINS }}" ] && echo "CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}"
+            [ -n "${{ secrets.NEXT_PUBLIC_API_URL }}" ] && echo "NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}"
+          } > .env
+          [ -s .env ] && cat .env || echo "（Secrets 未設定・docker-compose のデフォルト値を使用）"
+
+      - name: Build and deploy
+        run: |
+          docker compose -f docker-compose.prod.yml build
+          docker compose -f docker-compose.prod.yml up -d

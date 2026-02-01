@@ -246,11 +246,55 @@ go run ./cmd/server
 
 ### 6.4 ラズパイ（ARM64）向け Docker デプロイ
 
+#### 方法A: GitHub Actions + Self-hosted Runner（推奨・自宅ネットワーク向け）
+
+自宅のラズパイに Runner を登録し、push 時に自動デプロイ。
+
+**1. ラズパイの事前準備**
+
 ```bash
-# プロジェクトルートに .env を作成
+# Docker, Docker Compose, Git をインストール
+sudo apt update && sudo apt install -y docker.io docker-compose git
+sudo usermod -aG docker $USER  # 要ログアウト
+```
+
+**2. Self-hosted Runner の登録**
+
+1. GitHub リポジトリ → Settings → Actions → Runners → New self-hosted runner
+2. OS: Linux, Architecture: ARM64 を選択
+3. 表示されるコマンドをラズパイで実行:
+
+```bash
+mkdir actions-runner && cd actions-runner
+curl -o actions-runner-linux-arm64-*.tar.gz -L https://github.com/actions/runner/releases/...
+tar xzf ./actions-runner-linux-arm64-*.tar.gz
+./config.sh --url https://github.com/ユーザー名/KakeiboApp --token 発行されたトークン
+./run.sh  # または sudo ./svc.sh install && sudo ./svc.sh start でサービス化
+```
+
+**3. GitHub Secrets（任意・推奨）**
+
+Settings → Secrets and variables → Actions で追加:
+
+| 名前 | 例 |
+|------|-----|
+| CORS_ORIGINS | http://192.168.1.100:3000,http://10.0.0.5:3000 |
+| NEXT_PUBLIC_API_URL | http://192.168.1.100:8080 |
+
+**4. デプロイ実行**
+
+- main ブランチへ push で自動実行
+- または Actions タブ → Deploy to Raspberry Pi → Run workflow
+
+#### 方法B: 手動デプロイ
+
+```bash
+# プロジェクトをクローン
+git clone https://github.com/ユーザー名/KakeiboApp.git && cd KakeiboApp
+
+# .env を作成
 cp .env.example .env
 # CORS_ORIGINS に Wi-Fi と VPN の両方のフロントエンドURLを設定
-# 例: CORS_ORIGINS=http://192.168.1.100:3000,http://10.0.0.5:3000
 
 # ビルド＆起動
 docker compose -f docker-compose.prod.yml build
@@ -287,6 +331,6 @@ docker compose -f docker-compose.prod.yml up -d
 | ワークフロー | トリガー | 内容 |
 |-------------|---------|------|
 | CI | push / PR | Go テスト、Next.js リント・ビルド、Docker ビルド確認 |
-| Deploy | 手動 | ラズパイへ SSH でデプロイ（Secrets 要設定） |
+| Deploy | push / 手動 | ラズパイ上の Self-hosted Runner で docker compose 実行 |
 
-**Deploy 有効化手順**: Settings → Secrets → DEPLOY_HOST, DEPLOY_USER, DEPLOY_KEY, CORS_ORIGINS（Wi-Fi+VPNのオリジン）を追加
+**Deploy の前提**: ラズパイに Self-hosted Runner を登録すること（README 6.4 参照）。SSH 不要・自宅ネットワークから GitHub へのアウトバウンド接続のみで動作。

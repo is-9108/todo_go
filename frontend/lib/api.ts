@@ -1,6 +1,7 @@
 /**
  * API クライアント: バックエンド（Go + Echo）との通信を担当します。
- * 環境変数 NEXT_PUBLIC_API_URL でAPIのベースURLを指定します。
+ * ブラウザではアクセス元のホスト＋ポート8080を使用（WiFi/VPN両対応）。
+ * ビルド時・SSRでは NEXT_PUBLIC_API_URL または localhost を使用。
  */
 
 export type Transaction = {
@@ -35,7 +36,15 @@ export type UpdateTransactionRequest = {
   memo: string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+// ブラウザ: アクセス元ホスト＋:8080 でAPIに接続（WiFi/VPNどちらからも同じホストでアクセス可能）
+// サーバー/SSR: 環境変数または localhost
+function getApiBase(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8080`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+}
+const API_BASE = getApiBase();
 
 export async function getTransactions(): Promise<Transaction[]> {
   const res = await fetch(`${API_BASE}/api/transactions`);

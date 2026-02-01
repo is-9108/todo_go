@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"kakeibo-app/backend/internal/domain"
@@ -23,8 +24,17 @@ func main() {
 
 	e := echo.New()
 
+	// CORS: WiFi と VPN の両方のオリジンを許可
+	// CORS_ORIGINS 例: "http://192.168.1.100:3000,http://10.0.0.5:3000"
+	corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
+	for i := range corsOrigins {
+		corsOrigins[i] = strings.TrimSpace(corsOrigins[i])
+	}
+	if len(corsOrigins) == 1 && corsOrigins[0] == "" {
+		corsOrigins = []string{"http://localhost:3000"} // 開発用デフォルト
+	}
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     corsOrigins,
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
 		AllowCredentials: true,

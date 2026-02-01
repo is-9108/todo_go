@@ -241,7 +241,27 @@ go run ./cmd/server
 | 変数 | 用途 | 例 |
 |------|------|-----|
 | DATABASE_URL | DB接続（バックエンド） | postgres://kakeibo:kakeibo@localhost:5432/kakeibo?sslmode=disable |
-| NEXT_PUBLIC_API_URL | APIのベースURL（フロントエンド） | http://localhost:8080 |
+| CORS_ORIGINS | 許可するフロントエンドオリジン（カンマ区切り） | http://192.168.1.100:3000,http://10.0.0.5:3000 |
+| NEXT_PUBLIC_API_URL | APIのベースURL（ビルド時フォールバック） | http://localhost:8080 |
+
+### 6.4 ラズパイ（ARM64）向け Docker デプロイ
+
+```bash
+# プロジェクトルートに .env を作成
+cp .env.example .env
+# CORS_ORIGINS に Wi-Fi と VPN の両方のフロントエンドURLを設定
+# 例: CORS_ORIGINS=http://192.168.1.100:3000,http://10.0.0.5:3000
+
+# ビルド＆起動
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+```
+
+- フロントエンド: ポート 3000
+- バックエンド: ポート 8080
+- PostgreSQL: コンテナ内のみ（外部公開なし）
+
+**Wi-Fi / VPN 両対応**: フロントエンドはアクセス元ホストを自動検出してAPIに接続。バックエンドの CORS は `CORS_ORIGINS` 環境変数で複数オリジンを指定可能（カンマ区切り）。
 
 ---
 
@@ -249,7 +269,8 @@ go run ./cmd/server
 
 ### 7.1 CORS
 
-- 許可オリジン: http://localhost:3000
+- 許可オリジン: 環境変数 `CORS_ORIGINS`（カンマ区切り）で指定。未設定時は `http://localhost:3000`
+- 例（Wi-Fi+VPN）: `CORS_ORIGINS=http://192.168.1.100:3000,http://10.0.0.5:3000`
 - 許可メソッド: GET, POST, PUT, DELETE, OPTIONS
 
 ### 7.2 データ永続化
@@ -260,3 +281,12 @@ go run ./cmd/server
 ### 7.3 テスト
 
 - バックエンド: `go test ./internal/...` でリポジトリ・ハンドラのテストを実行
+
+### 7.4 GitHub Actions
+
+| ワークフロー | トリガー | 内容 |
+|-------------|---------|------|
+| CI | push / PR | Go テスト、Next.js リント・ビルド、Docker ビルド確認 |
+| Deploy | 手動 | ラズパイへ SSH でデプロイ（Secrets 要設定） |
+
+**Deploy 有効化手順**: Settings → Secrets → DEPLOY_HOST, DEPLOY_USER, DEPLOY_KEY, CORS_ORIGINS（Wi-Fi+VPNのオリジン）を追加

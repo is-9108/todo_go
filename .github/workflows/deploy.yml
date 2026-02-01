@@ -30,7 +30,7 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           envs: CORS_ORIGINS,NEXT_PUBLIC_API_URL
           script: |
-            cd /home/pi/kakeibo-app  # ラズパイ上のプロジェクトパスに変更
+            cd /home/[ -n "$username" ]/kakeibo-app  # ラズパイ上のプロジェクトパスに変更
             git pull origin main
             # .env を生成（Secrets があれば使用、なければ既存 .env を維持）
             if [ -n "$CORS_ORIGINS" ] || [ -n "$NEXT_PUBLIC_API_URL" ]; then

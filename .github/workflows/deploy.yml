@@ -9,7 +9,12 @@
 name: Deploy to Raspberry Pi
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 手動実行
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - "**.md"
+      - ".gitignore"
 
 jobs:
   deploy:
@@ -24,13 +29,14 @@ jobs:
         env:
           CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          envs: CORS_ORIGINS,NEXT_PUBLIC_API_URL
+          envs: CORS_ORIGINS,NEXT_PUBLIC_API_URL,DEPLOY_USER
           script: |
-            cd /home/[ -n "$username" ]/kakeibo-app  # ラズパイ上のプロジェクトパスに変更
+            cd /home/$DEPLOY_USER/kakeibo-app
             git pull origin main
             # .env を生成（Secrets があれば使用、なければ既存 .env を維持）
             if [ -n "$CORS_ORIGINS" ] || [ -n "$NEXT_PUBLIC_API_URL" ]; then
